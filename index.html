@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>COREKARA Challenge</title>
+		<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/css/bootstrap.min.css" integrity="sha384-HSMxcRTRxnN+Bdg0JdbxYKrThecOKuH5zCYotlSAcp1+c8xmyTe9GYg1l9a69psu" crossorigin="anonymous">
+		<script src="https://code.jquery.com/jquery-1.12.4.min.js" integrity="sha384-nvAa0+6Qg9clwYCGGPpDQLVpLNn0fRaROjHqs13t4Ggj3Ez50XnGQqc/r8MhnRDZ" crossorigin="anonymous"></script>
+		<script src="https://cdn.jsdelivr.net/npm/bootstrap@3.4.1/dist/js/bootstrap.min.js" integrity="sha384-aJ21OjlMXNL5UyIl/XNwTMqvzeRMZH2w8c5cRVpzpU8Y5bApTppSuUkhZXN0VxHd" crossorigin="anonymous"></script>
+		<script type="text/javascript">
+			function getLocationAndWeather(event) {
+				event.preventDefault();
+				
+				if ($("#post-code1").val().match(/^(\d{3}-{0,1}\d{4})$/)) {
+					let bingKey = "AroveTDVrKX3N9pBp-U9es48tJMDwGigNMQ6nF06uLRQJ5nr5dYmVEG9GqG_tBU-";
+					let postCode = $("#post-code1").val().replace("-", "");
+					let settings = {
+						"async": true,
+						"crossDomain": true,
+						"url": "http://dev.virtualearth.net/REST/v1/Locations/JP/" + postCode + "?&culture=en&maxResults=1&key=" + bingKey,
+						"method": "GET",
+						"headers": {
+							"content-type": "application/json"
+						}
+					};
+
+					$.ajax(settings)
+						.done(function (response, status) {
+							if (status === "success" && response && response.resourceSets && response.resourceSets[0] && response.resourceSets[0].resources[0] && response.resourceSets[0].resources[0].address && response.resourceSets[0].resources[0].address.adminDistrict && response.resourceSets[0].resources[0].address.locality) {
+								$("#1st-location-name").text(response.resourceSets[0].resources[0].address.adminDistrict + ", " + response.resourceSets[0].resources[0].address.locality + " City");
+								if (response.resourceSets[0].resources[0].point && response.resourceSets[0].resources[0].point.coordinates[0] && response.resourceSets[0].resources[0].point.coordinates[1]) {
+									$("#1st-location-latitude-longitude").val(response.resourceSets[0].resources[0].point.coordinates[0] + "," + 
+										response.resourceSets[0].resources[0].point.coordinates[1]);
+									getWeather(
+										response.resourceSets[0].resources[0].point.coordinates[0],
+										response.resourceSets[0].resources[0].point.coordinates[1]
+									);
+									displayLocation(
+										response.resourceSets[0].resources[0].point.coordinates[0],
+										response.resourceSets[0].resources[0].point.coordinates[1]
+									);
+								} else {
+									resetInterface();
+									alert("Couldn't retrieve the primary location's latitude and longitude. Please try again.");
+								}
+							} else {
+								resetInterface();
+								alert("Couldn't retrieve the primary location's name. Please try again.");
+							}
+						})
+						.fail(function() {
+							resetInterface();
+							alert("Couldn't retrieve the primary location's name. Please try again.");
+						});
+				} else {
+					alert("Wrong post code format. Please fix it and try again.");
+				}
+			}
+			
+			function getWeather(latitude, longitude) {
+				let settings = {
+					"async": true,
+					"crossDomain": true,
+					"url": "https://cors-anywhere.herokuapp.com/https://api.open-meteo.com/v1/forecast?latitude=" + latitude + "&longitude=" + longitude + "&daily=weathercode,temperature_2m_max,temperature_2m_min&current_weather=true&timezone=Asia%2FTokyo",
+					"method": "GET",
+					"headers": {
+						"content-type": "application/json"
+					}
+				};
+
+				$.ajax(settings)
+					.done(function (response, status) {
+						if (status === "success" && response && !response.error && response.daily && response.daily.weathercode && response.daily.weathercode[0] && response.daily.weathercode[1] && response.daily.weathercode[2] && response.daily.temperature_2m_max && response.daily.temperature_2m_max[0] && response.daily.temperature_2m_max[1] && response.daily.temperature_2m_max[2] && response.daily.temperature_2m_min && response.daily.temperature_2m_min[0] && response.daily.temperature_2m_min[1] && response.daily.temperature_2m_min[2]) {
+							let today = new Date();
+							let month = today.getMonth() + 1;
+							let day = today.getDate();
+							let weekday = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+							
+							$("#today-date").text(today.getFullYear() + (month < 10 ? "-0" + month : "-" + month) + (day < 10 ? "-0" + day : "-" + day) +  " " + weekday[today.getDay()]);
+							$("#today-min-max-temperature").text("Max: " + response.daily.temperature_2m_max[0] + "° Min: " + response.daily.temperature_2m_min[0] + "°");
+							$("#today-weather-state-img").prop("alt", "Today's Weather Forecast");
+							$("#today-weather-state-img").prop("class", "img-thumbnail");
+							if (response.daily.weathercode[0] === 0) {
+								$("#today-weather-state").text("Sunny");
+								$("#today-weather-state-img").prop("src", "https://www.metaweather.com/static/img/weather/png/c.png");
+							}
+							if (response.daily.weathercode[0] === 1 || response.daily.weathercode[0] === 2 || response.daily.weathercode[0] === 3 || response.daily.weathercode[0] === 45 || response.daily.weathercode[0] === 48) {
+								$("#today-weather-state").text("Cloudy");
+								$("#today-weather-state-img").prop("src", "https://www.metaweather.com/static/img/weather/png/lc.png");
+							}
+							if (response.daily.weathercode[0] === 51 || response.daily.weathercode[0] === 53 || response.daily.weathercode[0] === 55 || response.daily.weathercode[0] === 56 || response.daily.weathercode[0] === 57 || response.daily.weathercode[0] === 61 || response.daily.weathercode[0] === 63 || response.daily.weathercode[0] === 65 || response.daily.weathercode[0] === 66 || response.daily.weathercode[0] === 67 || response.daily.weathercode[0] === 80 || response.daily.weathercode[0] === 81 || response.daily.weathercode[0] === 82) {
+								$("#today-weather-state").text("Rain");
+								$("#today-weather-state-img").prop("src", "https://www.metaweather.com/static/img/weather/png/hr.png");
+							}
+							if (response.daily.weathercode[0] === 71 || response.daily.weathercode[0] === 73 || response.daily.weathercode[0] === 75 || response.daily.weathercode[0] === 77 || response.daily.weathercode[0] === 85 || response.daily.weathercode[0] === 86) {
+								$("#today-weather-state").text("Snow");
+								$("#today-weather-state-img").prop("src", "https://www.metaweather.com/static/img/weather/png/sn.png");
+							}
+							if (response.daily.weathercode[0] === 95 || response.daily.weathercode[0] === 96 || response.daily.weathercode[0] === 99) {
+								$("#today-weather-state").text("Thunderstorm");
+								$("#today-weather-state-img").prop("src", "https://www.metaweather.com/static/img/weather/png/t.png");
+							}
+							
+							
+							let tomorrow = new Date(today);
+							tomorrow.setDate(tomorrow.getDate() + 1);
+							month = tomorrow.getMonth() + 1;
+							day = tomorrow.getDate();
+							
+							$("#tomorrow-date").text(tomorrow.getFullYear() + (month < 10 ? "-0" + month : "-" + month) + (day < 10 ? "-0" + day : "-" + day) +  " " + weekday[tomorrow.getDay()]);
+							$("#tomorrow-min-max-temperature").text("Max: " + response.daily.temperature_2m_max[1] + "° Min: " + response.daily.temperature_2m_min[1] + "°");
+							$("#tomorrow-weather-state-img").prop("alt", "Tomorrow's Weather Forecast");
+							$("#tomorrow-weather-state-img").prop("class", "img-thumbnail");
+							if (response.daily.weathercode[1] === 0) {
+								$("#tomorrow-weather-state").text("Sunny");
+								$("#tomorrow-weather-state-img").prop("src", "https://www.metaweather.com//static/img/weather/png/c.png");
+							}
+							if (response.daily.weathercode[1] === 1 || response.daily.weathercode[1] === 2 || response.daily.weathercode[1] === 3 || response.daily.weathercode[1] === 45 || response.daily.weathercode[1] === 48) {
+								$("#tomorrow-weather-state").text("Cloudy");
+								$("#tomorrow-weather-state-img").prop("src", "https://www.metaweather.com//static/img/weather/png/lc.png");
+							}
+							if (response.daily.weathercode[1] === 51 || response.daily.weathercode[1] === 53 || response.daily.weathercode[1] === 55 || response.daily.weathercode[1] === 56 || response.daily.weathercode[1] === 57 || response.daily.weathercode[1] === 61 || response.daily.weathercode[1] === 63 || response.daily.weathercode[1] === 65 || response.daily.weathercode[1] === 66 || response.daily.weathercode[1] === 67 || response.daily.weathercode[1] === 80 || response.daily.weathercode[1] === 81 || response.daily.weathercode[1] === 82) {
+								$("#tomorrow-weather-state").text("Rain");
+								$("#tomorrow-weather-state-img").prop("src", "https://www.metaweather.com//static/img/weather/png/hr.png");
+							}
+							if (response.daily.weathercode[1] === 71 || response.daily.weathercode[1] === 73 || response.daily.weathercode[1] === 75 || response.daily.weathercode[1] === 77 || response.daily.weathercode[1] === 85 || response.daily.weathercode[1] === 86) {
+								$("#tomorrow-weather-state").text("Snow");
+								$("#tomorrow-weather-state-img").prop("src", "https://www.metaweather.com//static/img/weather/png/sn.png");
+							}
+							if (response.daily.weathercode[1] === 95 || response.daily.weathercode[1] === 96 || response.daily.weathercode[1] === 99) {
+								$("#tomorrow-weather-state").text("Thunderstorm");
+								$("#tomorrow-weather-state-img").prop("src", "https://www.metaweather.com//static/img/weather/png/t.png");
+							}
+							
+							
+							let dayAfterTomorrow = new Date(tomorrow);
+							dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 1);
+							month = dayAfterTomorrow.getMonth() + 1;
+							day = dayAfterTomorrow.getDate();
+							
+							$("#day-after-tomorrow-date").text(dayAfterTomorrow.getFullYear() + (month < 10 ? "-0" + month : "-" + month) + (day < 10 ? "-0" + day : "-" + day) +  " " + weekday[dayAfterTomorrow.getDay()]);
+							$("#day-after-tomorrow-min-max-temperature").text("Max: " + response.daily.temperature_2m_max[2] + "° Min: " + response.daily.temperature_2m_min[2] + "°");
+							$("#day-after-tomorrow-weather-state-img").prop("alt", "The day after tomorrow's Weather Forecast");
+							$("#day-after-tomorrow-weather-state-img").prop("class", "img-thumbnail");
+							if (response.daily.weathercode[2] === 0) {
+								$("#day-after-tomorrow-weather-state").text("Sunny");
+								$("#day-after-tomorrow-weather-state-img").prop("src", "https://www.metaweather.com//static/img/weather/png/c.png");
+							}
+							if (response.daily.weathercode[2] === 1 || response.daily.weathercode[2] === 2 || response.daily.weathercode[2] === 3 || response.daily.weathercode[2] === 45 || response.daily.weathercode[2] === 48) {
+								$("#day-after-tomorrow-weather-state").text("Cloudy");
+								$("#day-after-tomorrow-weather-state-img").prop("src", "https://www.metaweather.com//static/img/weather/png/lc.png");
+							}
+							if (response.daily.weathercode[2] === 51 || response.daily.weathercode[2] === 53 || response.daily.weathercode[2] === 55 || response.daily.weathercode[2] === 56 || response.daily.weathercode[2] === 57 || response.daily.weathercode[2] === 61 || response.daily.weathercode[2] === 63 || response.daily.weathercode[2] === 65 || response.daily.weathercode[2] === 66 || response.daily.weathercode[2] === 67 || response.daily.weathercode[2] === 80 || response.daily.weathercode[2] === 81 || response.daily.weathercode[2] === 82) {
+								$("#day-after-tomorrow-weather-state").text("Rain");
+								$("#day-after-tomorrow-weather-state-img").prop("src", "https://www.metaweather.com//static/img/weather/png/hr.png");
+							}
+							if (response.daily.weathercode[2] === 71 || response.daily.weathercode[2] === 73 || response.daily.weathercode[2] === 75 || response.daily.weathercode[2] === 77 || response.daily.weathercode[2] === 85 || response.daily.weathercode[2] === 86) {
+								$("#day-after-tomorrow-weather-state").text("Snow");
+								$("#day-after-tomorrow-weather-state-img").prop("src", "https://www.metaweather.com//static/img/weather/png/sn.png");
+							}
+							if (response.daily.weathercode[2] === 95 || response.daily.weathercode[2] === 96 || response.daily.weathercode[2] === 99) {
+								$("#day-after-tomorrow-weather-state").text("Thunderstorm");
+								$("#day-after-tomorrow-weather-state-img").prop("src", "https://www.metaweather.com//static/img/weather/png/t.png");
+							}
+						} else {
+							resetInterface();
+							alert("Couldn't retrieve the weather data. Please try again.");
+						}
+					})
+					.fail(function() {
+						resetInterface();
+						alert("Couldn't retrieve the weather data. Please try again.");
+					});
+			}
+			
+			function displayLocation(latitude, longitude) {
+				let http = new XMLHttpRequest();
+				
+				http.open("GET", "https://cors-anywhere.herokuapp.com/http://dev.virtualearth.net/REST/v1/Imagery/Map/Road/" + latitude + "," + longitude + "/18?mapSize=500,500&pp=" + latitude + "," + longitude + ";66&mapLayer=Basemap,Buildings&format=png&key=AroveTDVrKX3N9pBp-U9es48tJMDwGigNMQ6nF06uLRQJ5nr5dYmVEG9GqG_tBU-",true);
+				http.responseType = "arraybuffer";
+				http.send();
+				http.onload = () => {
+					if (http.response && http.status === 200) {
+						let b64Response = arrayBufferToBase64(http.response);
+						let imgSrc = "data:image/png;base64," + b64Response;
+						
+						$("#map").html("<img class=\"img-thumbnail\" src=\"" + imgSrc + "\">");
+					} else {
+						resetInterface();
+						alert("Couldn't retrieve the location's map. Please try again.");
+					}
+				}
+			}
+			
+			function arrayBufferToBase64(buffer) {
+				let binary = "";
+				let bytes = new Uint8Array(buffer);
+				let len = bytes.byteLength;
+				
+				for (let i = 0; i < len; i++) {
+					binary += String.fromCharCode(bytes[i]);
+				}
+				
+				return window.btoa(binary);
+			}
+			
+			function getDistanceBetweenLocations(event) {
+				event.preventDefault();
+				
+				if ($("#post-code1").val().match(/^(\d{3}-{0,1}\d{4})$/) && $("#post-code2").val().match(/^(\d{3}-{0,1}\d{4})$/) && $("#1st-location-latitude-longitude").val()) {
+					let bingKey = "AroveTDVrKX3N9pBp-U9es48tJMDwGigNMQ6nF06uLRQJ5nr5dYmVEG9GqG_tBU-";
+					let postCode = $("#post-code2").val().replace("-", "");
+					let settings = {
+						"async": true,
+						"crossDomain": true,
+						"url": "http://dev.virtualearth.net/REST/v1/Locations/JP/" + postCode + "?&culture=en&maxResults=1&key=" + bingKey,
+						"method": "GET",
+						"headers": {
+							"content-type": "application/json"
+						}
+					};
+
+					$.ajax(settings)
+						.done(function (response, status) {
+							if (status === "success" && response && response.resourceSets && response.resourceSets[0] && response.resourceSets[0].resources[0] && response.resourceSets[0].resources[0].address && response.resourceSets[0].resources[0].address.adminDistrict && response.resourceSets[0].resources[0].address.locality) {
+								$("#2nd-location-name").text(response.resourceSets[0].resources[0].address.adminDistrict + ", " + response.resourceSets[0].resources[0].address.locality + " City");
+								if (response.resourceSets[0].resources[0].point && response.resourceSets[0].resources[0].point.coordinates[0] && response.resourceSets[0].resources[0].point.coordinates[1]) {
+									let distance = calculateDistanceBetweenLocationsInKm(
+										$("#1st-location-latitude-longitude").val().split(",")[0],
+										$("#1st-location-latitude-longitude").val().split(",")[1],
+										response.resourceSets[0].resources[0].point.coordinates[0],
+										response.resourceSets[0].resources[0].point.coordinates[1]
+									);
+									
+									if (distance > 0) {
+										$("#distance").val(distance.toFixed(2));
+									} else {
+										$("#distance").val("ERROR");
+									}
+								} else {
+									resetInterface();
+									alert("Couldn't retrieve the extra location's latitude and longitude. Please try again.");
+								}
+							} else {
+								resetInterface();
+								alert("Couldn't retrieve the extra location's name. Please try again.");
+							}
+						})
+						.fail(function() {
+							resetInterface();
+							alert("Couldn't retrieve the extra location's name. Please try again.");
+						});
+				} else {
+					alert("Please make sure that both post codes are correct. Moreover, please check the weather at the primary location before proceeding.");
+				}
+			}
+			
+			function calculateDistanceBetweenLocationsInKm(lat1, lon1, lat2, lon2) {
+				let R = 6371; // Radius of the earth in km
+				let dLat = deg2rad(lat2 - lat1);  // deg2rad below
+				let dLon = deg2rad(lon2 - lon1); 
+				let a = 
+				Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+				Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+				Math.sin(dLon / 2) * Math.sin(dLon / 2)
+				;
+				let c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
+				let d = R * c; // Distance in km
+				
+				return d;
+			}
+
+			function deg2rad(deg) {
+				return deg * (Math.PI / 180)
+			}
+
+			function resetInterface() {
+				$("#post-code1").val("");
+				$("#1st-location-name").html("");
+				$("#1st-location-latitude-longitude").val("");
+				$("#2nd-location-name").html("");
+				$("#today-weather-state-img").prop("src", "");
+				$("#today-weather-state-img").prop("alt", "");
+				$("#today-weather-state-img").prop("class", "");
+				$("#today-date").html("");
+				$("#today-weather-state").html("");
+				$("#today-min-max-temperature").html("");
+				$("#tomorrow-weather-state-img").prop("src", "");
+				$("#tomorrow-weather-state-img").prop("alt", "");
+				$("#tomorrow-weather-state-img").prop("class", "");
+				$("#tomorrow-date").html("");
+				$("#tomorrow-weather-state").html("");
+				$("#tomorrow-min-max-temperature").html("");
+				$("#day-after-tomorrow-weather-state-img").prop("src", "");
+				$("#day-after-tomorrow-weather-state-img").prop("alt", "");
+				$("#day-after-tomorrow-weather-state-img").prop("class", "");
+				$("#day-after-tomorrow-date").html("");
+				$("#day-after-tomorrow-weather-state").html("");
+				$("#day-after-tomorrow-min-max-temperature").html("");
+				$("#map").html("");
+				$("#post-code2").val("");
+				$("#distance").val("");
+			}
+		</script>
+	</head>
+	<body>
+		<div class="first-base-layer">
+			<div class="second-base-layer">
+				<form class="form-inline">
+					<div class="form-group">
+						<label for="post-code1">Post Code</label>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+						<input type="text" class="form-control" id="post-code1" placeholder="160-0022" title="Please enter a valid post code." required>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+					</div>
+					
+					<input type="hidden" id="1st-location-latitude-longitude">
+					
+					<button type="submit" class="btn btn-primary" onclick="getLocationAndWeather(event)">Submit</button>
+				</form>
+				
+				<h1 id="1st-location-name"></h1>
+				
+				<div class="row" style="height: 35%;">
+					<h3>3-day forecast</h3>
+					
+					<div class="col-xs-4 first-forecast" id="first-forecast">
+						<img id="today-weather-state-img">
+						<h4 id="today-date"></h4>
+						<h3 id="today-weather-state" style="margin-top: 10px; margin-bottom: 10px;"></h3>
+						<h4 id="today-min-max-temperature"></h4>
+					</div>
+					
+					<div class="col-xs-4 second-forecast" id="second-forecast">
+						<img id="tomorrow-weather-state-img">
+						<h4 id="tomorrow-date"></h4>
+						<h3 id="tomorrow-weather-state" style="margin-top: 10px; margin-bottom: 10px;"></h3>
+						<h4 id="tomorrow-min-max-temperature"></h4>
+					</div>
+					
+					<div class="col-xs-4 third-forecast" id="third-forecast">
+						<img id="day-after-tomorrow-weather-state-img">
+						<h4 id="day-after-tomorrow-date"></h4>
+						<h3 id="day-after-tomorrow-weather-state" style="margin-top: 10px; margin-bottom: 10px;"></h3>
+						<h4 id="day-after-tomorrow-min-max-temperature"></h4>
+					</div>
+				</div>
+				
+				<div class="row">
+					<div class="col-xs-6" style="padding-left: 0;">
+						<h3>Map</h3>
+					</div>
+					
+					<div class="col-xs-6">
+						<h3 style="color: red;">Extra Location</h3>
+					</div>
+				</div>
+				
+				<div class="row" style="height: 40%;">
+					<div class="col-xs-6 map" id="map"></div>
+					
+					<div class="col-xs-6 free-space" id="free-space">
+						<form style="margin-top: 10%;">
+							<h2 id="2nd-location-name" style="text-align: center; color: blue;"></h2>
+				
+							<div class="form-group">
+								<label for="post-code2">Post Code</label>
+								<input type="text" class="form-control" id="post-code2" placeholder="160-0022" title="Please enter a valid post code." required>
+							</div>
+							
+							<div class="form-group">
+								<label for="distance">Distance between the two locations (Km)</label>
+								<input type="text" class="form-control" id="distance" readonly>
+							</div>
+							
+							<button type="submit" class="btn btn-success" onclick="getDistanceBetweenLocations(event)">Calculate</button>
+						</form>
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
+</html>
+
+<style>
+	.first-base-layer
+	{
+		margin: 0 auto;
+		background-color: #dddddd;
+		width: 70%;
+		height: 1080px;
+		margin-top: 5%;
+		margin-bottom: 5%;
+		padding: 1%;
+	}
+	
+	.second-base-layer
+	{
+		background-color: #ffffff;
+		border: 2px solid #bbbbbb;
+		padding: 10%;
+		height: 100%;
+	}
+	
+	.first-forecast
+	{
+		width: 30%;
+		height: 100%;
+		border: 2px solid #000000;
+		padding-top: 2%;
+		margin-right: 5%;
+		text-align: center;
+	}
+	
+	.second-forecast
+	{
+		width: 30%;
+		height: 100%;
+		border: 2px solid #000000;
+		padding-top: 2%;
+		margin-right: 5%;
+		text-align: center;
+	}
+	
+	.third-forecast
+	{
+		width: 30%;
+		height: 100%;
+		border: 2px solid #000000;
+		padding-top: 2%;
+		text-align: center;
+	}
+	
+	.map
+	{
+		width: 48%;
+		height: 98%;
+		border: 2px solid #bbbbbb;
+		margin-right: 4%;
+		padding: 0;
+	}
+	
+	.free-space
+	{
+		width: 48%;
+		height: 98%;
+		border: 2px solid #bbbbbb;
+	}
+</style>
